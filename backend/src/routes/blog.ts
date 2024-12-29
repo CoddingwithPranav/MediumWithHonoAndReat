@@ -21,8 +21,8 @@ blogRouter.use('/*', async (c, next) => {
             c.status(401);
             return c.json({ error: "unauthorized" });
         }
-        const token = jwt.split(' ')[1];
-        console.log(token)
+        const token = jwt;
+        console.log(token);
         const payload = await verify(token, c.env.JWT_SECRET);
         // const data = await decode(token)
         if (!payload) {
@@ -32,7 +32,6 @@ blogRouter.use('/*', async (c, next) => {
         // if (typeof data.payload.id == 'string') {
         c.set('userId', payload.id);
         // }
-        console.log(payload);
         await next()
     } catch (error) {
         console.log(error);
@@ -72,23 +71,58 @@ blogRouter.post('/', async (c) => {
         })
     }
 })
-
-
-blogRouter.get('/:id', (c) => {
-    const id = c.req.param('id')
-    console.log(id);
-    return c.text('get blog route')
-})
-
-blogRouter.get('/', async (c) => {
+blogRouter.get('/bulk', async (c) => {
     const prisma = new PrismaClient({
         datasourceUrl: c.env?.DATABASE_URL,
     }).$extends(withAccelerate());
 
-    const posts = await prisma.post.findMany({});
-
+    const posts = await prisma.post.findMany({
+        select:{
+            content:true,
+            title:true,
+            id:true,
+            author:{
+                select:{
+                    name:true
+                }
+            }
+        }
+    });
+    // console.log(posts);
     return c.json(posts);
 })
+
+blogRouter.get('/:id', async (c) => {
+    const id = c.req.param('id')
+    const prisma = new PrismaClient({
+        datasourceUrl: c.env?.DATABASE_URL,
+    }).$extends(withAccelerate());
+
+    try {
+        const blog = await prisma.post.findFirst({
+           where:{
+            id:id
+           },
+           select:{
+            content:true,
+            title:true,
+            id:true,
+            author:{
+                select:{
+                    name:true
+                }
+            }
+           }
+        })
+        return c.json(blog)
+    } catch (error) {
+        return c.json({
+            mes:"Failed to fetch"
+        })
+    }
+})
+
+
 
 
 blogRouter.put('/', async (c) => {
